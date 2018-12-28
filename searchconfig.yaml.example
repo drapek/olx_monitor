@@ -1,0 +1,8 @@
+recipient_emails:
+  - "recepient1@gmail.com"
+  - "recepient2@gmail.com"
+
+# This sites will be monitored. It should be search page with applied filter "newer first".
+olx_urls:
+  - "https://www.olx.pl/warszawa/q-sylwester-lokal/?search%5Border%5D=created_at%3Adesc&search%5Bdist%5D=30"
+  - "https://www.olx.pl/warszawa/q-sylwester-sala/?search%5Border%5D=created_at%3Adesc&search%5Bdist%5D=30"
