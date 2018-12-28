@@ -4,3 +4,4 @@
 .envconfig
 searchconfig.yaml
 db.file
+found_offers.json
