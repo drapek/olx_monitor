@@ -25,6 +25,7 @@ class Scrapper:
         try:
             with open(settings.DB_FILE, 'rb') as file:
                 self.FOUND_OFFERS_IDS = pickle.load(file)
+                log_print(f'read offers id from the database {self.FOUND_OFFERS_IDS}', message_type=3)
         except FileNotFoundError:
             pass
 
