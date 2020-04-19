@@ -3,21 +3,11 @@ import yaml
 
 from dotenv import load_dotenv
 
-SCAN_INTERVAL_SEC = 60 * 15
+SCAN_INTERVAL_SEC = 60 * 30
+WORKING_HOURS = (8, 23)
 OUT_FILE = '../found_offers.json'
 DB_FILE = '../db.file'
 LOG_LEVEL = 3  # 3 - Debug, 2 - Normal, 1 - No output
-
-# This is for simulating that requests comes from web-browser.
-BROWSER_REQUEST_HEADERS = {
-    "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
-    "accept-encoding": "gzip, deflate, br",
-    "accept-language": "en-GB,en;q=0.9,en-US;q=0.8,pl;q=0.7",
-    "cache-control": "max-age=0",
-    "upgrade-insecure-requests": "1",
-    "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko)"
-                  " Chrome/66.0.3359.139 Safari/537.36"
-}
 
 # Load data as environment variables from .envconfig file.
 load_dotenv('../.envconfig')

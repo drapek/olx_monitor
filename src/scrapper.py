@@ -1,3 +1,4 @@
+import datetime
 import json
 import random
 import time
@@ -7,6 +8,7 @@ from bs4 import BeautifulSoup
 
 import settings
 from email_sender import EmailSender
+from fake_request_header import olx_request_headers
 from logger import log_print
 
 
@@ -25,21 +27,38 @@ class Scrapper:
 
         self.RECIPIENT_EMAILS = recipient_emails
 
-    def run_in_loop(self, urls=list(), interval=settings.SCAN_INTERVAL_SEC, ):
+    def run_in_loop(self, sites, interval=settings.SCAN_INTERVAL_SEC, working_hours=settings.WORKING_HOURS):
         while not self.INTERRUPT_PROCESS:
-            for url in urls:
-                self.scan_site(url)
-                log_print(f"Requested url: {url}", message_type=3)
-                time.sleep(random.randint(5, 20))  # Wait random time to be not banned for botting
+            if not self.is_now_working_hour(working_hours):
+                log_print(f'We have currently non working hours. Current working hours are {working_hours[0]} - '
+                          f'{working_hours[1]}')
+                log_print(f'sleeping for {interval/60} min')
+                time.sleep(interval)
+                continue
+
+            for site in sites:
+                random_time = random.randint(5, 15) * 60
+                log_print(f'sleeping for {random_time / 60} min to prevent recognizing as BOT')
+                time.sleep(random_time)  # Wait random time to be not banned for being a BOT
+                self.scan_site(site['url'], site['cookie'])
+                log_print(f"Requested url: {site['url']}", message_type=3)
+
+            log_print(f'sleeping for {interval / 60} min')
             time.sleep(interval)
 
-    def scan_site(self, url):
-        page = requests.get(url)
+    def is_now_working_hour(self, working_hours):
+        return working_hours[0] <= datetime.datetime.now().hour < working_hours[1]
 
-        if page.status_code != 200:
-            raise ConnectionError(f"Can't fetch data. {page.status_code} : {page.content}")
+    def scan_site(self, url, cookie=''):
+        try:
+            page = requests.get(url, headers=self._generate_request_headers(cookie))
 
-        self.analyze_html_page(page.content)
+            if page.status_code != 200:
+                raise ConnectionError(f"Can't fetch data. {page.status_code} : {page.content}")
+
+            self.analyze_html_page(page.content)
+        except Exception as e:
+            log_print(f"Coudn't fetch the url {url}. The error: {e}", message_type=1)
 
     def analyze_html_page(self, html_content):
         soup = BeautifulSoup(html_content, 'html.parser')
@@ -53,17 +72,16 @@ class Scrapper:
             if offer_id not in self.FOUND_OFFERS_IDS:
                 self._save_found_offer_into_file(offer_data)
                 self._send_email(offer_data)
+                self.FOUND_OFFERS_IDS.add(offer_id)
                 self._dump_FOUND_OFFERS_IDS_into_DB()
                 log_print(f"Found: {offer_data}")
-            self.FOUND_OFFERS_IDS.add(offer_id)
 
     def _analyze_offer(self, offer):
-
         offer_data = {
             'title': self._get_value_or_none("offer.find('strong').text", offer),
             'price': self._get_value_or_none("offer.find('p', {'class': 'price'}).find('strong').text", offer),
-            'localization': self._get_value_or_none("offer.find('td', {'class': 'bottom-cell'}).find_all('span')[0].text",
-                                                    offer),
+            'localization': self._get_value_or_none("offer.find('td', "
+                                                    "{'class': 'bottom-cell'}).find_all('span')[0].text", offer),
             'add_time': self._get_value_or_none("offer.find('td', {'class': 'bottom-cell'}).find_all('span')[1].text",
                                                 offer),
             'image_url': self._get_value_or_none("offer.find('img').attrs['src']", offer),
@@ -106,3 +124,10 @@ class Scrapper:
     def _dump_FOUND_OFFERS_IDS_into_DB(self):
         with open(settings.DB_FILE, 'wb+') as file:
             pickle.dump(self.FOUND_OFFERS_IDS, file)
+
+    def _generate_request_headers(self, req_cookie):
+        headers = olx_request_headers
+        current_timestamp = int(time.time())
+        cookie = req_cookie + f' lister_lifecycle={current_timestamp};'
+        headers['cookie'] = cookie
+        return headers

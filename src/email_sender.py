@@ -14,14 +14,14 @@ class EmailSender:
         self.password = settings.EMAIL_PASSWORD
 
     def send_email(self, recipient, subject, body):
-        TO = recipient if isinstance(recipient, list) else [recipient]
+        to = recipient if isinstance(recipient, list) else [recipient]
         if not recipient:
             return  # exit when there is no recipients
 
         msg = MIMEMultipart('alternative')
         msg['Subject'] = subject
         msg['From'] = self.user
-        msg['To'] = ", ".join(TO)
+        msg['To'] = ", ".join(to)
         msg.attach(MIMEText(body, 'html'))
 
         try:
@@ -29,7 +29,7 @@ class EmailSender:
             server.ehlo()
             server.starttls()
             server.login(self.user, self.password)
-            server.sendmail(self.user, TO, msg.as_string())
+            server.sendmail(self.user, to, msg.as_string())
             server.close()
         except Exception as e:
             log_print(f"failed to send mail: {e}", message_type=3)
