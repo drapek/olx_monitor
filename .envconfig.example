@@ -1,2 +1,4 @@
 EMAIL_USER = 'example@gmail.com'
 EMAIL_PASSWORD = 'yourpassword'
+
+MESSENGER_APP_TOKEN = ''

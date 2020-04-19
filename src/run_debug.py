@@ -1,4 +1,4 @@
-from email_sender import EmailSender
+from email_sender import EmailClient
 from scrapper import Scrapper
 
 
@@ -13,7 +13,7 @@ def run_on_local_file():
 
 
 def send_email():
-    es = EmailSender()
+    es = EmailClient()
     es.send_email('drapek39@gmail.com', 'test', 'super <b>test</b> 2')
 
 

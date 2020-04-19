@@ -7,7 +7,7 @@ import smtplib
 from logger import log_print
 
 
-class EmailSender:
+class EmailClient:
 
     def __init__(self):
         self.user = settings.EMAIL_USER

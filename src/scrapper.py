@@ -7,15 +7,18 @@ import requests
 from bs4 import BeautifulSoup
 
 import settings
-from email_sender import EmailSender
+from email_sender import EmailClient
 from fake_request_header import olx_request_headers
 from logger import log_print
+from messenger_client import MessengerClient
 
 
 class Scrapper:
     INTERRUPT_PROCESS = False
     FOUND_OFFERS_IDS = set()
     RECIPIENT_EMAILS = []
+    messenger_client = None
+    email_client = None
 
     def __init__(self, recipient_emails=()):
         # primitive way of storing data in file
@@ -26,6 +29,8 @@ class Scrapper:
             pass
 
         self.RECIPIENT_EMAILS = recipient_emails
+        self.messenger_client = MessengerClient(settings.MESSENGER_APP_TOKEN, settings.MESSENGER_RECIPIENTS)
+        self.email_client = EmailClient()
 
     def run_in_loop(self, sites, interval=settings.SCAN_INTERVAL_SEC, working_hours=settings.WORKING_HOURS):
         while not self.INTERRUPT_PROCESS:
@@ -72,6 +77,7 @@ class Scrapper:
             if offer_id not in self.FOUND_OFFERS_IDS:
                 self._save_found_offer_into_file(offer_data)
                 self._send_email(offer_data)
+                self._send_messenger_msg(offer_data)
                 self.FOUND_OFFERS_IDS.add(offer_id)
                 self._dump_FOUND_OFFERS_IDS_into_DB()
                 log_print(f"Found: {offer_data}")
@@ -108,7 +114,6 @@ class Scrapper:
             out_file.writelines(json.dumps(offer)+",\n")
 
     def _send_email(self, offer_data):
-        es = EmailSender()
         email_body = f'<!DOCTYPE html>' \
                      f'<html lang="pl"><body>' \
                      f'<b>Cześć, znanazłem nowe ogłoszenie! </b><h1>{offer_data["title"]}</h1> ' \
@@ -119,7 +124,16 @@ class Scrapper:
                      f'<a href="{offer_data["offer_url"]}">Link do aukcji</a>' \
                      f'</body></html>'
 
-        es.send_email(self.RECIPIENT_EMAILS, "Drapek wyszukiwacz - nowe ogłoszenie na OLX", email_body)
+        self.email_client.send_email(self.RECIPIENT_EMAILS, "Drapek wyszukiwacz - nowe ogłoszenie na OLX", email_body)
+
+    def _send_messenger_msg(self, offer_data):
+        message = f'Cześć znalazłem nowe ogłoszenie! \n\n' \
+                  f'{offer_data["title"]} za {offer_data["price"]}. \n\n' \
+                  f'Lokalizacja: {offer_data["localization"]} \n' \
+                  f'Dodano {offer_data["add_time"]}. \n' \
+                  f'Link {offer_data["offer_url"]}'
+        self.messenger_client.send_message(message)
+        self.messenger_client.send_image(offer_data["image_url"])
 
     def _dump_FOUND_OFFERS_IDS_into_DB(self):
         with open(settings.DB_FILE, 'wb+') as file:
@@ -131,3 +145,19 @@ class Scrapper:
         cookie = req_cookie + f' lister_lifecycle={current_timestamp};'
         headers['cookie'] = cookie
         return headers
+
+
+def send_debug_messenger_msg():
+    offer = {"title": "Nowoczesne i komfortowe mieszkanie 2 pokoje Warszawa \u2013 Ochota", "price": "1 650 z\u0142",
+             "localization": "Warszawa, Ochota",
+             "add_time": "dzisiaj 15:05",
+             "image_url": "https://apollo-ireland.akamaized.net:443/v1/files/uhm01bee0c54-PL/image;s=261x203",
+             "offer_url": "https://www.olx.pl/oferta/nowoczesne-i-komfortowe-mieszkanie-2-pokoje-warszawa-ochota-CID3-"
+                          "IDEl1KI.html#b8e2255afb",
+             "data_id": "596065068"}
+    scrapper = Scrapper()
+    scrapper._send_messenger_msg(offer)
+
+
+if __name__ == '__main__':
+    send_debug_messenger_msg()
