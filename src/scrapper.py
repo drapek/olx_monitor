@@ -42,7 +42,7 @@ class Scrapper:
                 continue
 
             for site in sites:
-                random_time = random.randint(5, 15) * 60
+                random_time = random.randint(2, 10) * 60
                 log_print(f'sleeping for {random_time / 60} min to prevent recognizing as BOT')
                 time.sleep(random_time)  # Wait random time to be not banned for being a BOT
                 self.scan_site(site['url'], site['cookie'])
@@ -132,8 +132,8 @@ class Scrapper:
                   f'Lokalizacja: {offer_data["localization"]} \n' \
                   f'Dodano {offer_data["add_time"]}. \n' \
                   f'Link {offer_data["offer_url"]}'
-        self.messenger_client.send_message(message)
         self.messenger_client.send_image(offer_data["image_url"])
+        self.messenger_client.send_message(message)
 
     def _dump_FOUND_OFFERS_IDS_into_DB(self):
         with open(settings.DB_FILE, 'wb+') as file:
