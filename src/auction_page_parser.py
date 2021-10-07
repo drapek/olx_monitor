@@ -59,23 +59,54 @@ class OlxParser(PageParser):
         offers_dict = {}
         for offer_html in found_offers_html:
             offer_data = self.analyze_offer(offer_html)
-            offer_id = offer_data.get('data_id')
+            offer_id = f"olx_{offer_data['data_id']}"
             offers_dict[offer_id] = offer_data
 
         return offers_dict
 
     def analyze_offer(self, offer_html):
         offer_data = {
-            'title': get_value_or_none("offer.find('strong').text"),
-            'price': get_value_or_none("offer.find('p', {'class': 'price'}).find('strong').text"),
-            'localization': get_value_or_none("offer.find('td', {'class': 'bottom-cell'}).find_all('span')[0].text"),
-            'add_time': get_value_or_none("offer.find('td', {'class': 'bottom-cell'}).find_all('span')[1].text"),
-            'image_url': get_value_or_none("offer.find('img').attrs['src']"),
-            'offer_url': get_value_or_none("offer.find('a').attrs['href']"),
+            'title': get_value_or_none("offer_html.find('strong').text", offer_html),
+            'price': get_value_or_none("offer_html.find('p', {'class': 'price'}).find('strong').text", offer_html),
+            'localization':
+                get_value_or_none("offer_html.find('td', {'class': 'bottom-cell'}).find_all('span')[0].text",
+                                  offer_html),
+            'add_time':
+                get_value_or_none("offer_html.find('td', {'class': 'bottom-cell'}).find_all('span')[1].text",
+                                  offer_html),
+            'image_url': get_value_or_none("offer_html.find('img').attrs['src']", offer_html),
+            'offer_url': get_value_or_none("offer_html.find('a').attrs['href']", offer_html),
             'data_id': offer_html.get('data-id')
         }
         return offer_data
 
 
 class SprzedajemyParser:
-    ...
+    def analyze_html_page(self, html_content):
+        soup = BeautifulSoup(html_content, 'html.parser')
+
+        # Get the first listing ul - these are normal offers and not outdated
+        offers_html = soup.find_all('ul', class_='normal')[0].find_all('li')
+
+        offers_dict = {}
+        for offer_html in offers_html:
+            if not 'offer-' in offer_html.attrs.get('id', ''):
+                # Skip the 'ul' that doesn't have offer in id - they are not offers
+                continue
+            offer_data = self.analyze_offer(offer_html)
+            offer_id = f"sprzedajemy_{offer_data['data_id']}"
+            offers_dict[offer_id] = offer_data
+
+        return offers_dict
+
+    def analyze_offer(self, offer_html):
+        offer_data = {
+            'title': get_value_or_none("offer_html.find('h2', class_='title').text", offer_html),
+            'price': get_value_or_none("offer_html.find('span', class_='price').text", offer_html),
+            'localization': get_value_or_none("offer_html.find('strong', class_='city').text", offer_html),
+            'add_time': get_value_or_none("offer_html.find('time', class_='time').attrs['datetime']", offer_html),
+            'image_url': get_value_or_none("offer_html.find('img').attrs['src']", offer_html),
+            'offer_url': 'https://sprzedajemy.pl' + get_value_or_none("offer_html.find('a').attrs['href']", offer_html),
+            'data_id': offer_html.attrs['id'][len('offer-'):]  # strip the 'offer-' prefix
+        }
+        return offer_data

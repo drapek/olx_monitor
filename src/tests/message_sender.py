@@ -28,7 +28,7 @@ class MessageSender:
 
     def send_messages(self, offer_data):
         self._send_email(offer_data)
-        self._send_email(offer_data)
+        self._send_messenger_msg(offer_data)
 
     def _send_email(self, offer_data):
         if self.email_client:
