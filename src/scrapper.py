@@ -30,8 +30,21 @@ class Scrapper:
             pass
 
         self.RECIPIENT_EMAILS = recipient_emails
-        self.messenger_client = MessengerClient(settings.MESSENGER_APP_TOKEN, settings.MESSENGER_RECIPIENTS)
-        self.email_client = EmailClient()
+
+        self._init_clients()
+
+    def _init_clients(self):
+        client_available = False
+        if settings.MESSENGER_APP_TOKEN and settings.MESSENGER_RECIPIENTS:
+            self.messenger_client = MessengerClient(settings.MESSENGER_APP_TOKEN, settings.MESSENGER_RECIPIENTS)
+            client_available = True
+
+        if settings.EMAIL_USER and settings.EMAIL_PASSWORD:
+            self.email_client = EmailClient()
+            client_available = True
+
+        if not client_available:
+            log_print('[WARRNING] No message client are available! Email and messenger won\'t be send.', message_type=1)
 
     def run_in_loop(self, sites, interval=settings.SCAN_INTERVAL_SEC, working_hours=settings.WORKING_HOURS):
         while not self.INTERRUPT_PROCESS:
@@ -43,9 +56,9 @@ class Scrapper:
                 continue
 
             for site in sites:
-                random_time = random.randint(2, 10) * 60
+                random_time = random.randint(2, 5) * 60
                 log_print(f'sleeping for {random_time / 60} min to prevent recognizing as BOT')
-                time.sleep(random_time)  # Wait random time to be not banned for being a BOT
+                # time.sleep(random_time)  # Wait random time to be not banned for being a BOT
                 self.scan_site(site['url'], site['cookie'])
                 log_print(f"Requested url: {site['url']}", message_type=3)
 
@@ -115,26 +128,28 @@ class Scrapper:
             out_file.writelines(json.dumps(offer)+",\n")
 
     def _send_email(self, offer_data):
-        email_body = f'<!DOCTYPE html>' \
-                     f'<html lang="pl"><body>' \
-                     f'<b>Cześć, znanazłem nowe ogłoszenie! </b><h1>{offer_data["title"]}</h1> ' \
-                     f'<table><tr><td><img src="{offer_data["image_url"]}" /></td></tr>' \
-                     f'<tr><td><b>Cena: {offer_data["price"]}</b></td></tr>' \
-                     f'<tr><td><p>Data dodania: {offer_data["add_time"]}</p></td></tr>' \
-                     f'<tr><td><p>Lokalizajca: {offer_data["localization"]}</p></td></tr></table>' \
-                     f'<a href="{offer_data["offer_url"]}">Link do aukcji</a>' \
-                     f'</body></html>'
+        if self.email_client:
+            email_body = f'<!DOCTYPE html>' \
+                         f'<html lang="pl"><body>' \
+                         f'<b>Cześć, znanazłem nowe ogłoszenie! </b><h1>{offer_data["title"]}</h1> ' \
+                         f'<table><tr><td><img src="{offer_data["image_url"]}" /></td></tr>' \
+                         f'<tr><td><b>Cena: {offer_data["price"]}</b></td></tr>' \
+                         f'<tr><td><p>Data dodania: {offer_data["add_time"]}</p></td></tr>' \
+                         f'<tr><td><p>Lokalizajca: {offer_data["localization"]}</p></td></tr></table>' \
+                         f'<a href="{offer_data["offer_url"]}">Link do aukcji</a>' \
+                         f'</body></html>'
 
-        self.email_client.send_email(self.RECIPIENT_EMAILS, "Drapek wyszukiwacz - nowe ogłoszenie na OLX", email_body)
+            self.email_client.send_email(self.RECIPIENT_EMAILS, "Drapek wyszukiwacz - nowe ogłoszenie na OLX", email_body)
 
     def _send_messenger_msg(self, offer_data):
-        message = f'Cześć znalazłem nowe ogłoszenie! \n\n' \
-                  f'{offer_data["title"]} za {offer_data["price"]}. \n\n' \
-                  f'Lokalizacja: {offer_data["localization"]} \n' \
-                  f'Dodano {offer_data["add_time"]}. \n' \
-                  f'Link {offer_data["offer_url"]}'
-        self.messenger_client.send_image(offer_data["image_url"])
-        self.messenger_client.send_message(message)
+        if self.messenger_client:
+            message = f'Cześć znalazłem nowe ogłoszenie! \n\n' \
+                      f'{offer_data["title"]} za {offer_data["price"]}. \n\n' \
+                      f'Lokalizacja: {offer_data["localization"]} \n' \
+                      f'Dodano {offer_data["add_time"]}. \n' \
+                      f'Link {offer_data["offer_url"]}'
+            self.messenger_client.send_image(offer_data["image_url"])
+            self.messenger_client.send_message(message)
 
     def _dump_FOUND_OFFERS_IDS_into_DB(self):
         with open(settings.DB_FILE, 'wb+') as file:

@@ -3,7 +3,7 @@ import yaml
 
 from dotenv import load_dotenv
 
-SCAN_INTERVAL_SEC = 60 * 20
+SCAN_INTERVAL_SEC = 60 * 10
 WORKING_HOURS = (8, 23)
 OUT_FILE = '../found_offers.json'
 DB_FILE = '../db.file'

@@ -1,3 +1,4 @@
+import settings
 from email_sender import EmailClient
 from scrapper import Scrapper
 
@@ -14,7 +15,7 @@ def run_on_local_file():
 
 def send_email():
     es = EmailClient()
-    es.send_email('drapek39@gmail.com', 'test', 'super <b>test</b> 2')
+    es.send_email(settings.EMAIL_USER, 'test', 'super <b>test</b> 2')
 
 
 if __name__ == '__main__':
