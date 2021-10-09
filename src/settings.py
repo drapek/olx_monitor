@@ -18,6 +18,7 @@ MESSENGER_APP_TOKEN = os.getenv('MESSENGER_APP_TOKEN')
 # Load search data from YAML file
 with open('../searchconfig.yaml', 'r') as yaml_file:
     yaml_data = yaml.load(yaml_file)
+
     OLX_SITES_TO_MONITOR = yaml_data['olx_urls']
     RECIPIENT_EMAILS = yaml_data['recipient_emails']
     MESSENGER_RECIPIENTS = yaml_data['messenger_users_psids']
