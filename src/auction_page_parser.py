@@ -46,8 +46,13 @@ class AuctionPageParser:
 
 
 class PageParser(ABC):
-    def analyze_html_page(self, html_content):
-        soup = BeautifulSoup(html_content, 'html.parser')
+    def analyze_html_page(self, raw_html_content):
+        """
+        The main method - Recommended to not override this method
+        :param raw_html_content: the raw html content
+        :return: dict - {'offer_id': { offer_data }, ...}
+        """
+        soup = BeautifulSoup(raw_html_content, 'html.parser')
 
         found_offers_html = self.get_offers_list_html(soup)
 
@@ -63,10 +68,20 @@ class PageParser(ABC):
 
     @abstractmethod
     def get_offers_list_html(self, page_html):
+        """
+        This method should find the all elements on the page (like div, h2, etc) that consist the offers.
+        :param page_html: whole page html parsed by beautiful soup
+        :return: list of parsed html elements that should be an offers. One element in list is equal to one offer
+        """
         ...
 
     @abstractmethod
     def analyze_offer(self, offer_html):
+        """
+        Make an analysis of the provided html offer to create offer_dict that consist the all needed data
+        :param offer_html: the one offer html - this should be an beautiful soup parsed html
+        :return: dict - the data dict with all needed offer parameters
+        """
         ...
 
     def is_offer_element_valid(self, offer_html):
