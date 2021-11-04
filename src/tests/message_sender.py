@@ -47,7 +47,8 @@ class MessageSender:
     def _send_messenger_msg(self, offer_data):
         if self.messenger_client:
             message = f'Cześć znalazłem nowe ogłoszenie! \n\n' \
-                      f'{offer_data["title"]} za {offer_data["price"]}. \n\n' \
+                      f'{offer_data["title"]}. \n\n' \
+                      f'Cena: {offer_data["price"]} \n' \
                       f'Lokalizacja: {offer_data["localization"]} \n' \
                       f'Dodano {offer_data["add_time"]}. \n' \
                       f'Link {offer_data["offer_url"]}'
