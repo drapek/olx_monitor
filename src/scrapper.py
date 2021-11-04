@@ -40,7 +40,7 @@ class Scrapper:
             for site in sites:
                 random_time = random.randint(2, 5) * 60
                 log_print(f'sleeping for {random_time / 60} min to prevent recognizing as BOT')
-                # time.sleep(random_time)  # Wait random time to be not banned for being a BOT
+                time.sleep(random_time)  # Wait random time to be not banned for being a BOT
                 offers_dict = AuctionPageParser.scan_site(site['url'], site['cookie'])
                 if offers_dict:
                     self.perform_actions_on_offers(offers_dict)

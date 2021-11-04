@@ -123,13 +123,16 @@ class SprzedajemyParser(PageParser):
         return 'offer-' in offer_html.attrs.get('id', '')
 
     def analyze_offer(self, offer_html):
+        offer_url = get_value_or_none("offer_html.find('a').attrs['href']", offer_html)
+        if 'https://' not in offer_url:
+            offer_html = 'https://sprzedajemy.pl' + offer_html
         offer_data = {
             'title': get_value_or_none("offer_html.find('h2', class_='title').text", offer_html),
             'price': get_value_or_none("offer_html.find('span', class_='price').text", offer_html),
             'localization': get_value_or_none("offer_html.find('strong', class_='city').text", offer_html),
             'add_time': get_value_or_none("offer_html.find('time', class_='time').attrs['datetime']", offer_html),
             'image_url': get_value_or_none("offer_html.find('img').attrs['src']", offer_html),
-            'offer_url': 'https://sprzedajemy.pl' + get_value_or_none("offer_html.find('a').attrs['href']", offer_html),
+            'offer_url': offer_url,
             'data_id': offer_html.attrs['id'][len('offer-'):]  # strip the 'offer-' prefix
         }
         return offer_data
