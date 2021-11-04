@@ -49,6 +49,8 @@ class MessageSender:
             message = f'Cześć znalazłem nowe ogłoszenie! \n\n' \
                       f'{offer_data["title"]}. \n\n' \
                       f'Cena: {offer_data["price"]} \n' \
+                      f'Silnik: {offer_data["engine"]} \n' \
+                      f'Przebieg: {offer_data["odo"]} \n' \
                       f'Lokalizacja: {offer_data["localization"]} \n' \
                       f'Dodano {offer_data["add_time"]}. \n' \
                       f'Link {offer_data["offer_url"]}'
