@@ -29,11 +29,10 @@ class AuctionPageParser:
             parser = None
             if 'otodom.pl' in url:
                 parser = OtoDomParser
-            # TODO add Car data class and update the Parsers
-            # if 'olx.pl' in url:
-            #     parser = OlxParser
-            # if 'sprzedajemy.pl' in url:
-            #     parser = SprzedajemyParser
+            if 'olx.pl' in url:
+                parser = OlxParser
+            if 'sprzedajemy.pl' in url:
+                parser = SprzedajemyParser
             if 'otomoto.pl' in url:
                 parser = OtomotoParser
             if parser is None:
@@ -113,48 +112,116 @@ class PageParser(ABC):
         return True
 
 
-# class OlxParser(PageParser):
-#     def get_offers_list_html(self, page_html):
-#         return page_html.find_all('table', {'summary': "Ogłoszenia"})[0].find_all("table", {'summary': "Ogłoszenie"})
-#
-#     def analyze_offer(self):
-#         offer_data = {
-#             'title': safe_eval.get_value_or_none("self.offer_html.find('strong').text"),
-#             'price': safe_eval.get_value_or_none("self.offer_html.find('p', {'class': 'price'}).find('strong').text"),
-#             'localization':
-#                 safe_eval.get_value_or_none("self.offer_html.find('td', {'class': 'bottom-cell'}).find_all('span')[0].text",
-#                                   offer_html),
-#             'add_time':
-#                 safe_eval.get_value_or_none("self.offer_html.find('td', {'class': 'bottom-cell'}).find_all('span')[1].text",
-#                                   offer_html),
-#             'image_url': safe_eval.get_value_or_none("self.offer_html.find('img').attrs['src']"),
-#             'offer_url': safe_eval.get_value_or_none("self.offer_html.find('a').attrs['href']"),
-#             'data_id': offer_html.get('data-id')
-#         }
-#         return offer_data
-#
-#
-# class SprzedajemyParser(PageParser):
-#     def get_offers_list_html(self, page_html):
-#         return page_html.find_all('ul', class_='normal')[0].find_all('li')
-#
-#     def is_offer_element_valid(self):
-#         return 'offer-' in offer_html.attrs.get('id', '')
-#
-#     def analyze_offer(self):
-#         offer_url = safe_eval.get_value_or_none("self.offer_html.find('a').attrs['href']")
-#         if 'https://' not in offer_url:
-#             offer_html = 'https://sprzedajemy.pl' + offer_html
-#         offer_data = {
-#             'title': safe_eval.get_value_or_none("self.offer_html.find('h2', class_='title').text"),
-#             'price': safe_eval.get_value_or_none("self.offer_html.find('span', class_='price').text"),
-#             'localization': safe_eval.get_value_or_none("self.offer_html.find('strong', class_='city').text"),
-#             'add_time': safe_eval.get_value_or_none("self.offer_html.find('time', class_='time').attrs['datetime']"),
-#             'image_url': safe_eval.get_value_or_none("self.offer_html.find('img').attrs['src']"),
-#             'offer_url': offer_url,
-#             'data_id': offer_html.attrs['id'][len('offer-'):]  # strip the 'offer-' prefix
-#         }
-#         return offer_data
+class OlxParser(PageParser):
+    def get_offers_list_html(self, page_html):
+        return page_html.find_all('table', {'summary': "Ogłoszenia"})[0].find_all("table", {'summary': "Ogłoszenie"})
+
+    def analyze_offer(self, offer_html) -> CarOffer:
+        safe_eval = Bs4SafeCodeEvaluator(offer_html, self.page_url)
+        details_page_url = safe_eval.get_value_or_none("self.offer_html.find('a').attrs['href']")
+        offer_data = {
+            'tittle': safe_eval.get_value_or_none("self.offer_html.find('strong').text"),
+            'price': safe_eval.get_value_or_none("self.offer_html.find('p', {'class': 'price'}).find('strong').text"),
+            'localization':
+                safe_eval.get_value_or_none(
+                    "self.offer_html.find('td', {'class': 'bottom-cell'}).find_all('span')[0].text"),
+            'add_date':
+                safe_eval.get_value_or_none(
+                    "self.offer_html.find('td', {'class': 'bottom-cell'}).find_all('span')[1].text"),
+            'image_url': safe_eval.get_value_or_none("self.offer_html.find('img').attrs['src']"),
+            'offer_url': details_page_url,
+            'portal_offer_id': offer_html.get('data-id')
+        }
+        internal_id = f"{self.__class__.__name__}_{offer_data['portal_offer_id']}"
+        if details_page_url:
+            if 'otomoto' in details_page_url:
+                details_page_offer_data = OtomotoParser(
+                    downloader=self.page_downloader,
+                    found_offers_set=self.found_offers_set,
+                    message_sender=self.message_sender,
+                    page_url=details_page_url
+                ).analyze_details_page(details_page_url)
+            else:
+                details_page_offer_data = self.analyze_details_page(details_page_url)
+            offer_data.update(details_page_offer_data)
+
+        car_offer = CarOffer(id=internal_id, **offer_data)
+        return car_offer
+
+    def analyze_details_page(self, details_page_url) -> dict:
+        page = self.page_downloader.get_page(details_page_url)
+        offer_html = BeautifulSoup(page.content, 'html.parser')
+        safe_eval = Bs4SafeCodeEvaluator(offer_html, details_page_url)
+
+        gas_type = safe_eval.get_value_or_none("self.offer_html.find('p', string=re.compile('Paliwo:')).text")
+        engine_size = safe_eval.get_value_or_none(
+            "self.offer_html.find('p', string=re.compile('Poj. silnika:')).text")
+        horse_power = safe_eval.get_value_or_none(
+            "self.offer_html.find('p', string=re.compile('Moc silnika:')).text")
+        mileage_in_km = safe_eval.get_value_or_none("offer_html.find('p', string=re.compile('Przebieg:')).text")
+
+        # Strip the labels from the begging
+        try:
+            gas_type = gas_type.split()[-1]
+        except Exception as e:
+            log_print(f'The extracting the value from string {gas_type} was unable. Details {e}')
+            gas_type = None
+
+        try:
+            engine_size = engine_size.replace('Poj. silnika:', '').strip()
+        except Exception as e:
+            log_print(f'The extracting the value from string {engine_size} was unable. Details {e}')
+            engine_size = None
+
+        try:
+            horse_power = int(horse_power.split()[2])
+        except Exception as e:
+            log_print(f'The extracting the value from string {horse_power} was unable. Details {e}')
+            horse_power = None
+
+        return {'gas_type': gas_type, 'engine_size': engine_size, 'horse_power': horse_power,
+                'mileage_in_km': mileage_in_km}
+
+
+class SprzedajemyParser(PageParser):
+    def get_offers_list_html(self, page_html):
+        return page_html.find_all('ul', class_='normal')[0].find_all('li')
+
+    def is_offer_element_valid(self, offer_html):
+        return 'offer-' in offer_html.attrs.get('id', '')
+
+    def analyze_offer(self, offer_html) -> CarOffer:
+        safe_eval = Bs4SafeCodeEvaluator(offer_html, self.page_url)
+        offer_url = safe_eval.get_value_or_none("self.offer_html.find('a').attrs['href']")
+        if 'https://' not in offer_url:
+            offer_url = 'https://sprzedajemy.pl' + offer_url
+        offer_data = {
+            'tittle': safe_eval.get_value_or_none("self.offer_html.find('h2', class_='title').text"),
+            'price': safe_eval.get_value_or_none("self.offer_html.find('span', class_='price').text"),
+            'localization': safe_eval.get_value_or_none("self.offer_html.find('strong', class_='city').text"),
+            'add_date': safe_eval.get_value_or_none("self.offer_html.find('time', class_='time').attrs['datetime']"),
+            'image_url': safe_eval.get_value_or_none("self.offer_html.find('img').attrs['src']"),
+            'offer_url': offer_url,
+            'mileage_in_km': safe_eval.get_value_or_none(
+                "self.offer_html.find('span', string=re.compile('Przebieg')).parent.text"),
+            'portal_offer_id': offer_html.attrs['id'][len('offer-'):]  # strip the 'offer-' prefix
+        }
+        internal_id = f"{self.__class__.__name__}_{offer_data['portal_offer_id']}"
+
+        engine_desc = safe_eval.get_value_or_none(
+            "self.offer_html.find('span', string=re.compile('Silnik')).parent.text")
+
+        engine_size = ''
+        gas_type = ''
+        if engine_desc:
+            try:
+                engine_size = engine_desc.split()[1]
+                gas_type = engine_desc.split()[2]
+            except Exception as e:
+                log_print(f'The extracting the value from string {engine_desc} was unable. Details {e}')
+
+        car_offer = CarOffer(id=internal_id, engine_size=engine_size, gas_type=gas_type, **offer_data)
+        return car_offer
 
 
 class OtomotoParser(PageParser):
