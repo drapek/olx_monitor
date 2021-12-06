@@ -9,6 +9,7 @@ from datetime import datetime
 from bs4 import BeautifulSoup
 
 import settings
+from data_classes.car import CarOffer
 from data_classes.house import HouseOffer
 from logger import log_print
 from page_downloander import PageDownloader
@@ -33,11 +34,11 @@ class AuctionPageParser:
             #     parser = OlxParser
             # if 'sprzedajemy.pl' in url:
             #     parser = SprzedajemyParser
-            # if 'otomoto.pl' in url:
-            #     parser = OtomotoParser
-            # if parser is None:
-            #     log_print(f"[ERROR] couldn't find Page Parser for the site {url}")
-            #     return
+            if 'otomoto.pl' in url:
+                parser = OtomotoParser
+            if parser is None:
+                log_print(f"[ERROR] couldn't find Page Parser for the site {url}")
+                return
 
             return parser(downloader=self.page_downloader, found_offers_set=self.found_offers_set,
                           message_sender=self.message_sender, page_url=url).analyze_html_page(page.content)
@@ -154,30 +155,73 @@ class PageParser(ABC):
 #             'data_id': offer_html.attrs['id'][len('offer-'):]  # strip the 'offer-' prefix
 #         }
 #         return offer_data
-#
-#
-# class OtomotoParser(PageParser):
-#     def get_offers_list_html(self, page_html):
-#         return page_html.find_all('div', class_='offers')[0].find_all('article')
-#
-#     def analyze_offer(self):
-#         offer_data = {
-#             'title': safe_eval.get_value_or_none("self.offer_html.find('a', class_='offer-title__link').attrs['title']"),
-#             'price': safe_eval.get_value_or_none("self.offer_html.find('span', class_='offer-price__number').text"),
-#             'localization': safe_eval.get_value_or_none("self.offer_html.find('h4', class_='ds-location').text"),
-#             'add_time': f'empty - but the offer was found at {datetime.now()}',
-#             'image_url': safe_eval.get_value_or_none("self.offer_html.find('img').attrs['data-src']"),
-#             'offer_url': safe_eval.get_value_or_none("self.offer_html.find('a').attrs['href']"),
-#             'data_id': offer_html.attrs['data-ad-id']  # strip the 'offer-' prefix
-#         }
-#         return offer_data
+
+
+class OtomotoParser(PageParser):
+    def get_offers_list_html(self, page_html):
+        return page_html.find_all('div', class_='offers')[0].find_all('article')
+
+    def analyze_offer(self, offer_html) -> CarOffer:
+        safe_eval = Bs4SafeCodeEvaluator(offer_html, self.page_url)
+        details_page_url = safe_eval.get_value_or_none("self.offer_html.find('a').attrs['href']")
+        offer_data = {
+            'tittle': safe_eval.get_value_or_none("self.offer_html.find('a', class_='offer-title__link').attrs['title']"),
+            'price': safe_eval.get_value_or_none("self.offer_html.find('span', class_='offer-price__number').text"),
+            'localization': safe_eval.get_value_or_none("self.offer_html.find('h4', class_='ds-location').text"),
+            'add_date': f'empty - but the offer was found at {datetime.now()}',
+            'image_url': safe_eval.get_value_or_none("self.offer_html.find('img').attrs['data-src']"),
+            'offer_url': details_page_url,
+            'mileage_in_km': safe_eval.get_value_or_none(
+                "self.offer_html.find('li', class_='ds-param', attrs={'data-code': 'mileage'}).text"),
+            'portal_offer_id': offer_html.attrs['data-ad-id']
+        }
+        internal_id = f"{self.__class__.__name__}_{offer_data['portal_offer_id']}"
+        if details_page_url:
+            details_page_offer_data = self.analyze_details_page(details_page_url)
+            offer_data.update(details_page_offer_data)
+
+        car_offer = CarOffer(id=internal_id, **offer_data)
+        return car_offer
+
+    def analyze_details_page(self, details_page_url) -> dict:
+        page = self.page_downloader.get_page(details_page_url)
+        offer_html = BeautifulSoup(page.content, 'html.parser')
+        safe_eval = Bs4SafeCodeEvaluator(offer_html, details_page_url)
+
+        gas_type = safe_eval.get_value_or_none(
+            "self.offer_html.find('span', string=re.compile('Rodzaj paliwa')).parent.text")
+        engine_size = safe_eval.get_value_or_none(
+            "self.offer_html.find('span', string=re.compile('Pojemność skokowa')).parent.text")
+        horse_power = safe_eval.get_value_or_none(
+            "self.offer_html.find('span', string=re.compile('Moc')).parent.text")
+
+        # Strip the labels from the begging
+        try:
+            gas_type = gas_type.split()[-1]
+        except Exception as e:
+            log_print(f'The extracting the value from string {gas_type} was unable. Details {e}')
+            gas_type = None
+
+        try:
+            engine_size = engine_size.replace('Pojemność skokowa', '').strip()
+        except Exception as e:
+            log_print(f'The extracting the value from string {engine_size} was unable. Details {e}')
+            engine_size = None
+
+        try:
+            horse_power = int(horse_power.split()[1])
+        except Exception as e:
+            log_print(f'The extracting the value from string {horse_power} was unable. Details {e}')
+            horse_power = None
+
+        return {'engine_size': engine_size, 'gas_type': gas_type, 'horse_power': horse_power}
 
 
 class OtoDomParser(PageParser):
     def get_offers_list_html(self, page_html):
         return page_html.find_all('h2', {'data-cy': 'search.listing.title'})[0].parent.find_all('li')
 
-    def analyze_offer(self, offer_html):
+    def analyze_offer(self, offer_html) -> HouseOffer:
         safe_eval = Bs4SafeCodeEvaluator(offer_html, self.page_url)
         internal_id = None
         portal_offer_id = None
@@ -204,7 +248,7 @@ class OtoDomParser(PageParser):
                            localization=localization, **dict_data)
         return offer
 
-    def analyze_offer_details_page(self, url):
+    def analyze_offer_details_page(self, url: str) -> dict:
         """
         :param url: the url for details page
         :return: dict with params that will be used ass attribs into dataclass HouseOffer

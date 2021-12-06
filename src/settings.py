@@ -10,7 +10,7 @@ DB_FILE = '../persistent/db.file'
 LOG_LEVEL = 3  # 3 - Debug, 2 - Normal, 1 - No output
 
 # Load data as environment variables from .envconfig file.
-load_dotenv('../.envconfig')
+load_dotenv('../.env')
 EMAIL_USER = os.getenv('EMAIL_USER')
 EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD')
 MESSENGER_APP_TOKEN = os.getenv('MESSENGER_APP_TOKEN')
