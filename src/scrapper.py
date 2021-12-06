@@ -29,17 +29,17 @@ class Scrapper:
 
     def run_in_loop(self, sites, interval=settings.SCAN_INTERVAL_SEC, working_hours=settings.WORKING_HOURS):
         while not self.INTERRUPT_PROCESS:
-            # if not self.is_now_working_hour(working_hours):
-            #     log_print(f'We have currently non working hours. Current working hours are {working_hours[0]} - '
-            #               f'{working_hours[1]}')
-            #     log_print(f'sleeping for {interval/60} min')
-            #     time.sleep(interval)
-            #     continue
+            if not self.is_now_working_hour(working_hours):
+                log_print(f'We have currently non working hours. Current working hours are {working_hours[0]} - '
+                          f'{working_hours[1]}')
+                log_print(f'sleeping for {interval/60} min')
+                time.sleep(interval)
+                continue
 
             for site in sites:
                 random_time = random.randint(2, 5) * 60
                 log_print(f'sleeping for {random_time / 60} min to prevent recognizing as BOT')
-                # time.sleep(random_time)  # Wait random time to be not banned for being a BOT
+                time.sleep(random_time)  # Wait random time to be not banned for being a BOT
                 AuctionPageParser(self.FOUND_OFFERS_IDS, self.message_sender, site['cookie']).scan_site(site['url'])
                 self._save_offers_ids_to_database()
                 log_print(f"Requested url: {site['url']}", message_type=3)
