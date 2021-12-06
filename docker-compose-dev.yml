@@ -1,0 +1,24 @@
+# Docker compose designed for easier development (no need to rebuild containers after each change)
+version: "3"
+services:
+  nordvpn:
+    image: ghcr.io/bubuntux/nordvpn
+    cap_add:
+      - NET_ADMIN               # Required
+    environment:                # Review https://github.com/bubuntux/nordvpn#environment-variables
+      - USER=${NORDVPN_USER?add nord vpn user in .envconfig file}     # Required
+      - PASS=${NORDVPN_PASS:?add nord vpn pass in .envconfig file}         # Required
+      - CONNECT=Germany
+      - TECHNOLOGY=NordLynx
+      - NETWORK=192.168.1.0/24  # So it can be accessed within the local network
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=1  # Recomended if using ipv4 only
+
+  olxmonitor:
+    build: ./
+    image: olxmonitor:dev
+    volumes:
+    - .:/app/
+    network_mode: service:nordvpn
+    depends_on:
+      - nordvpn

@@ -2,6 +2,6 @@
 .env
 
 .envconfig
-searchconfig.yaml
-db.file
-found_offers.json
+persistent/searchconfig.yaml
+persistent/db.file
+persistent/found_offers.json
